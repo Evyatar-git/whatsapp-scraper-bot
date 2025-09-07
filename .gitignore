@@ -88,3 +88,16 @@ ngrok.exe
 .local/
 temp/
 tmp/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!terraform.tfvars.example
+terraform.tfplan
+.terraform.tfstate.lock.info
+
+# AWS
+.aws/
