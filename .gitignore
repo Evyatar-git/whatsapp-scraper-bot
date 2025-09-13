@@ -101,3 +101,13 @@ terraform.tfplan
 
 # AWS
 .aws/
+
+# Kubernetes
+*.kubeconfig
+kubeconfig
+.kube/
+
+# Helm
+*.tgz
+charts/*.tgz
+.helmignore
