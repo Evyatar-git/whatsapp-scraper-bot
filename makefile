@@ -10,7 +10,7 @@ test:
 	pytest tests/ -v
 
 build:
-	docker build -t whatsapp-scraper-bot .
+	docker build -t weather-bot .
 
 docker:
 	docker-compose up -d
