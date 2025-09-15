@@ -60,10 +60,12 @@ Thumbs.db
 # Logs
 *.log
 logs/
+weather_bot.log
 
 # Database
 *.db
 *.sqlite3
+weather_bot.db
 
 # Testing
 .coverage
