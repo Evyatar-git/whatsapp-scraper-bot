@@ -10,8 +10,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
-COPY .env.local .env
 COPY run.py .
+
+# Create a default .env file if .env.local doesn't exist
+RUN echo "API_HOST=0.0.0.0\nAPI_PORT=8000\nDEBUG=false\nLOG_LEVEL=INFO" > .env
 
 EXPOSE 8000
 

@@ -1,6 +1,6 @@
 apiVersion: v2
-name: whatsapp-scraper-chart
-description: A Helm chart for Kubernetes
+name: weather-bot-chart
+description: A Helm chart for Weather Bot
 
 # A chart can be either an 'application' or a 'library' chart.
 #

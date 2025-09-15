@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: whatsapp-scraper-service
-  namespace: whatsapp-scraper
+  name: weather-bot-service
+  namespace: weather-bot
   labels:
-    app: whatsapp-scraper
+    app: weather-bot
 spec:
   type: LoadBalancer
   ports:
@@ -13,4 +13,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: whatsapp-scraper
+    app: weather-bot

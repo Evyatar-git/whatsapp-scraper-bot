@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: whatsapp-scraper
+  name: weather-bot
   labels:
-    app: whatsapp-scraper
+    app: weather-bot
     environment: local
