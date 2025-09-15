@@ -1,4 +1,5 @@
-# Weather Bot (WhatsApp)
+# Weather Bot (WhatsApp)  
+![CI](https://github.com/Evyatar-git/whatsapp-weather-bot/actions/workflows/ci.yml/badge.svg)
 
 A FastAPI-based WhatsApp Weather Bot that fetches current weather and replies via WhatsApp (Twilio). The project emphasizes DevOps best practices: containerization, Kubernetes, Helm, Terraform, structured logging, and secure configuration.
 
