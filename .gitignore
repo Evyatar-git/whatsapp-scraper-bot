@@ -125,4 +125,4 @@ kubeconfig
 # Helm
 *.tgz
 charts/*.tgz
-.helmignore
+.helmignoreNUL
