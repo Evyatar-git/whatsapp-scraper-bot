@@ -67,13 +67,16 @@ logs/
 
 # Testing
 .coverage
+.coverage.*
 .pytest_cache/
 htmlcov/
 .tox/
 .nox/
+coverage.xml
 
 # Docker
-.dockerignore
+# Keep .dockerignore tracked; it's important for builds
+docker-compose.override.yml
 
 # Backup files
 *.backup
@@ -88,6 +91,16 @@ ngrok.exe
 .local/
 temp/
 tmp/
+.python-version
+.envrc
+
+# Python type/lint caches
+.mypy_cache/
+.pytype/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Terraform
 .terraform/
