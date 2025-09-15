@@ -6,9 +6,13 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
     volumes:
-      - ./.env.local:/app/.env
-      - ./src:/app/src
+      # Optional: mount local env file if present
+      # - ./.env.local:/app/.env
+      # Optional: enable hot-reload by mounting source code during development
+      # - ./src:/app/src
     depends_on:
       - redis
     healthcheck:

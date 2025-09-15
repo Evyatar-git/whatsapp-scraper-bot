@@ -1,4 +1,4 @@
-.PHONY: install run test build docker clean
+.PHONY: install run test build docker clean lint type fmt ci stop
 
 install:
 	pip install -r requirements.txt
@@ -8,6 +8,18 @@ run:
 
 test:
 	pytest tests/ -v
+
+lint:
+	ruff check .
+
+type:
+	mypy src tests
+
+fmt:
+	ruff format .
+
+ci:
+	make lint && make type && make test
 
 build:
 	docker build -t weather-bot .
