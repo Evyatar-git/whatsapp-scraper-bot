@@ -92,9 +92,9 @@ module "ecs" {
   }
 
   secrets = {
-    TWILIO_ACCOUNT_SID   = "arn:aws:ssm:us-east-1:719737572192:parameter/whatsapp-scraper-account-sid"
-    TWILIO_AUTH_TOKEN    = "arn:aws:ssm:us-east-1:719737572192:parameter/whatsapp-scraper-auth-token"
-    TWILIO_WHATSAPP_FROM = "arn:aws:ssm:us-east-1:719737572192:parameter/whatsapp-scraper-whatsapp-from"
+    TWILIO_ACCOUNT_SID   = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-account-sid"
+    TWILIO_AUTH_TOKEN    = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-auth-token"
+    TWILIO_WHATSAPP_FROM = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-whatsapp-from"
   }
 
   tags = local.common_tags
