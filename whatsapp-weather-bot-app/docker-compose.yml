@@ -1,0 +1,16 @@
+services:
+  weather-bot:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - WEATHER_API_KEY=
+      - TWILIO_ACCOUNT_SID=
+      - TWILIO_AUTH_TOKEN=
+    volumes:
+      - ./weather_bot.db:/app/weather_bot.db
+      - ./weather_bot.log:/app/weather_bot.log
