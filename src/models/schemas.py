@@ -1,12 +1,13 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional
 
 class WeatherRequest(BaseModel):
     city: str = Field(..., min_length=1, max_length=100, description="City name")
-    
-    @validator('city')
-    def validate_city(cls, v):
+
+    @field_validator('city')
+    @classmethod
+    def validate_city(cls, v: str) -> str:
         if not v.strip():
             raise ValueError('City name cannot be empty')
         if any(char.isdigit() for char in v):
