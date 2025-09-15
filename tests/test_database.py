@@ -3,10 +3,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from src.database.config import get_db, WeatherData, init_database, test_database_connection
+from src.database.config import get_db, WeatherData, init_database, test_database_connection as _test_db_conn
 
 def test_database_connection():
-    assert test_database_connection() == True
+    assert _test_db_conn() is True
 
 def test_weather_data_creation():
     init_database()

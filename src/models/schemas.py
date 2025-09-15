@@ -18,8 +18,8 @@ class WeatherResponse(BaseModel):
     city: str
     temperature: float
     description: str
-    humidity: Optional[int]
-    feels_like: Optional[float]
+    humidity: Optional[int] = None
+    feels_like: Optional[float] = None
     created_at: datetime
 
 class ErrorResponse(BaseModel):
