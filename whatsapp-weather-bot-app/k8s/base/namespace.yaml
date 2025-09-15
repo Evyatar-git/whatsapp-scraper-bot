@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: weather-bot
-  labels:
-    app: weather-bot
-    environment: local

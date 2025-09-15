@@ -1,9 +1,0 @@
-@echo off
-echo Deploying Weather Bot infrastructure for demonstration...
-cd terraform/environments/dev
-echo Initializing Terraform...
-terraform init
-echo Applying infrastructure...
-terraform apply -auto-approve
-echo Weather Bot infrastructure deployed. Remember to run cleanup-demo.bat when finished.
-pause
