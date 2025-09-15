@@ -40,6 +40,13 @@ docker-compose up --build
 curl -X POST http://localhost:8000/weather -H "Content-Type: application/json" -d '{"city":"London"}'
 ```
 
+Notes:
+- The compose file sets `API_HOST=0.0.0.0` and `API_PORT=8000` by default.
+- Healthcheck is enabled; container will report healthy when `/health` returns 200.
+- Optional local conveniences (commented in `docker-compose.yml`):
+  - Map `./.env.local` to `/app/.env` if you use a local env file
+  - Mount `./src` for hot-reload during development
+
 ## Local Kubernetes (Minikube)
 ```bash
 minikube start
@@ -97,6 +104,32 @@ terraform/              # AWS modules (VPC, ALB, ECS) for future use
 - Logs write to console and `weather_bot.log`; adjust `LOG_LEVEL`
 - SQLite file `weather_bot.db` is volume-mounted in Docker Compose
 - Pydantic validates input (rejects empty or numeric city names)
+
+## Developer workflow
+
+### Make targets
+```bash
+# run tests
+make test
+
+# lint (ruff) and type-check (mypy)
+make lint
+make type
+
+# format with ruff
+make fmt
+
+# run the full local check pipeline (lint + type + tests)
+make ci
+
+# stop the stack
+make stop
+```
+
+### CI
+- GitHub Actions runs on every push/PR:
+  - Install deps, run tests, ruff lint, and mypy type checks
+  - Failing checks block merges so the repo stays healthy
 
 ## Roadmap
 - Twilio send message helper and E2E WhatsApp flow
