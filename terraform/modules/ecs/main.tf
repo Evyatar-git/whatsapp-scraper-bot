@@ -118,7 +118,7 @@ resource "aws_iam_role_policy" "ecs_task_execution_ssm" {
           "ssm:GetParameter"
         ]
         Resource = [
-          "arn:aws:ssm:us-east-1:*:parameter/whatsapp-scraper-*"
+          "arn:aws:ssm:us-east-1:*:parameter/weather-bot-*"
         ]
       }
     ]
