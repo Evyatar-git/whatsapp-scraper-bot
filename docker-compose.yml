@@ -1,33 +1,16 @@
-version: '3.8'
-
 services:
-  api:
+  weather-bot:
     build: .
     ports:
       - "8000:8000"
     environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
       - DEBUG=true
+      - LOG_LEVEL=INFO
+      - WEATHER_API_KEY=
+      - TWILIO_ACCOUNT_SID=
+      - TWILIO_AUTH_TOKEN=
     volumes:
-      - ./.env.local:/app/.env
-      - ./src:/app/src
-    depends_on:
-      - redis
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: scraper_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+      - ./weather_bot.db:/app/weather_bot.db
+      - ./weather_bot.log:/app/weather_bot.log

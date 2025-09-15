@@ -10,7 +10,7 @@ test:
 	pytest tests/ -v
 
 build:
-	docker build -t whatsapp-scraper-bot .
+	docker build -t weather-bot .
 
 docker:
 	docker-compose up -d
@@ -26,4 +26,4 @@ ngrok:
 	ngrok http 8000
 
 logs:
-	docker-compose logs -f api
+	docker-compose logs -f weather-bot
