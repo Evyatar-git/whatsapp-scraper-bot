@@ -14,7 +14,7 @@ A FastAPI-based WhatsApp Weather Bot that fetches current weather and replies vi
 - **SQLite + SQLAlchemy 2.0** for persistence
 - **Pydantic** models for validation
 - **Docker**, **Kubernetes** (Minikube locally), **Helm**, **Terraform** (AWS modules present but optional)
-- **Logging** via Python logging configured to console and `weather_bot.log`
+- **Logging** to console (CloudWatch in AWS)
 
 ## Prerequisites
 - Docker Desktop (optionally with Kubernetes/Minikube)
@@ -71,6 +71,10 @@ curl -X POST http://localhost:8000/webhook \
   -d "From=whatsapp:+1234567890&Body=London"
 ```
 
+Webhook security:
+- Bot validates Twilio signatures on `/webhook` when `TWILIO_AUTH_TOKEN` is set.
+- Ensure the webhook URL exactly matches the URL configured in Twilio Console.
+
 ## API endpoints
 - `GET /health` – health and DB connectivity check
 - `POST /weather` – JSON body `{ "city": "London" }`
@@ -81,7 +85,7 @@ curl -X POST http://localhost:8000/webhook \
 src/
   api/main.py           # FastAPI app, /health, /weather, /webhook
   config/settings.py    # Env-driven configuration
-  config/logging.py     # Console + file logging
+  config/logging.py     # Console logging only
   database/config.py    # SQLAlchemy engine, models, init/health
   models/schemas.py     # Pydantic request/response models
   services/weather.py   # WeatherService (API or test mode)
@@ -131,7 +135,22 @@ make stop
   - Install deps, run tests, ruff lint, and mypy type checks
   - Failing checks block merges so the repo stays healthy
 
+## Production deploy (AWS/ECS/ALB)
+High-level steps:
+1. Save secrets in AWS SSM Parameter Store:
+   - `weather-bot-account-sid`, `weather-bot-auth-token`, `weather-bot-whatsapp-from`
+   - `weather-bot-openweather-key`
+2. In `terraform/environments/dev`:
+   - `terraform init && terraform apply`
+3. Build and push Docker image to ECR; force ECS service redeploy.
+4. In Twilio Sandbox, set webhook to `http://<ALB_DNS>/webhook`.
+5. Test by sending a city in WhatsApp.
+
+Notes
+- ECS tasks read secrets from SSM; redeploy to pick up changes.
+- Logs are in CloudWatch `/ecs/weather-bot`.
+- SQLite data is ephemeral in ECS; use RDS if persistence is required.
+
 ## Roadmap
-- Twilio send message helper and E2E WhatsApp flow
 - EKS or ECS deployment with CI/CD
 - Observability (structured logs/metrics)

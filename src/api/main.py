@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form, Response, Depends, HTTPException
+from fastapi import FastAPI, Form, Response, Depends, HTTPException, Request
 import os
 import sys
 from pathlib import Path
@@ -11,6 +11,9 @@ from src.models.schemas import WeatherRequest, WeatherResponse, ErrorResponse
 from src.services.weather import WeatherService
 from sqlalchemy.orm import Session
 import logging
+from twilio.twiml.messaging_response import MessagingResponse
+from twilio.request_validator import RequestValidator
+import html
 
 # Setup logging
 logger = setup_logging()
@@ -216,17 +219,74 @@ async def get_weather(request: WeatherRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/webhook")
-async def webhook(From: str = Form(...), Body: str = Form(...), db: Session = Depends(get_db)):
+async def webhook(request: Request, From: str = Form(...), Body: str = Form(...)):
     logger.info(f"Webhook received from {From}, body length: {len(Body)}")
-    
-    phone_number = From.replace("whatsapp:", "")
-    response_message = handle_message(phone_number, Body, db)
-    send_message(From, response_message)
-    
-    logger.info("Webhook processed", 
-               from_number=From, 
-               response_length=len(response_message))
-    return Response(status_code=200)
+    try:
+        # Validate Twilio signature when credentials are configured
+        if auth_token:
+            try:
+                signature = request.headers.get("X-Twilio-Signature", "")
+                form_data = dict((await request.form()).items())
+                url = str(request.url)
+                validator = RequestValidator(auth_token)
+                if not validator.validate(url, form_data, signature):
+                    logger.warning("Twilio signature validation failed")
+                    return Response(status_code=403, content="Forbidden")
+            except Exception as e:
+                logger.exception(f"Signature validation error: {e}")
+                return Response(status_code=403, content="Forbidden")
+
+        message_text = Body.strip()
+        message_lower = message_text.lower()
+
+        if message_lower == "ping":
+            reply_text = "Weather bot is working!"
+        elif message_lower in ["hello", "hi", "start"]:
+            reply_text = (
+                "WhatsApp Weather Bot\n\n"
+                "Commands:\n"
+                "• Send city name for weather (e.g., 'London' or 'New York')\n"
+                "• 'help' for commands\n"
+                "• 'ping' to test\n\n"
+                "Example: London"
+            )
+        elif message_lower in ["help", "?"]:
+            reply_text = (
+                "Available commands:\n"
+                "• Send city name for weather\n"
+                "• 'ping' - test bot\n"
+                "• 'help' - show commands\n\n"
+                "Supported: Any city worldwide"
+            )
+        else:
+            # Full weather flow: validate input, fetch weather, format message
+            try:
+                weather_request = WeatherRequest(city=message_text)
+                result = weather_service.get_current_weather(city=weather_request.city, db=None)
+                if result["status"] == "success":
+                    reply_text = weather_service.format_weather_message({
+                        "status": "success",
+                        "data": result["data"]
+                    })
+                else:
+                    reply_text = f"Weather Error: {result.get('error', 'Unknown error')}"
+            except ValueError as ve:
+                reply_text = f"Invalid Input: {str(ve)}"
+            except Exception as e:
+                logger.exception(f"Weather fetch error: {str(e)}")
+                reply_text = "Sorry, an error occurred fetching the weather. Please try again."
+
+        # Build TwiML safely via Twilio helper to avoid XML issues
+        safe_text = html.escape(reply_text)
+        resp = MessagingResponse()
+        resp.message(safe_text)
+
+        logger.info(f"Webhook processed and replying with TwiML, reply_length={len(safe_text)}")
+        return Response(content=str(resp), media_type="application/xml", status_code=200)
+
+    except Exception as e:
+        logger.exception(f"Webhook error: {str(e)}")
+        return Response(status_code=500, content="Internal Server Error")
 
 if __name__ == "__main__":
     import uvicorn

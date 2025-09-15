@@ -24,7 +24,7 @@ class WeatherService:
     def get_current_weather(self, city: str = None, country: str = None, db: Session = None) -> Dict:
         """Get current weather for a city and store it in database."""
         city = city or self.default_city
-        country = country or self.default_country
+        country = country or None
         
         logger.info(f"Fetching weather data for {city}, {country}")
         
@@ -44,7 +44,7 @@ class WeatherService:
         try:
             url = f"{self.base_url}/weather"
             params = {
-                "q": f"{city},{country}",
+                "q": city if country is None else f"{city},{country}",
                 "appid": self.api_key,
                 "units": "metric"
             }

@@ -7,8 +7,7 @@ def setup_logging():
         level=getattr(logging, settings.log_level.upper()),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.StreamHandler(sys.stdout),
-            logging.FileHandler('weather_bot.log')
+            logging.StreamHandler(sys.stdout)
         ]
     )
     

@@ -95,6 +95,7 @@ module "ecs" {
     TWILIO_ACCOUNT_SID   = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-account-sid"
     TWILIO_AUTH_TOKEN    = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-auth-token"
     TWILIO_WHATSAPP_FROM = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-whatsapp-from"
+    WEATHER_API_KEY      = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-openweather-key"
   }
 
   tags = local.common_tags
