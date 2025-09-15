@@ -78,7 +78,7 @@ src/
   models/schemas.py     # Pydantic request/response models
   services/weather.py   # WeatherService (API or test mode)
 k8s/base/               # Namespace, Deployment, Service, ConfigMap, Secret
-whatsapp-scraper-chart/ # Helm chart (values updated for weather-bot)
+whatsapp-weather-bot-chart/ # Helm chart (values updated for weather-bot)
 terraform/              # AWS modules (VPC, ALB, ECS) for future use
 ```
 

@@ -9,5 +9,5 @@ resources:
 - service/service.yaml
 
 commonLabels:
-  project: whatsapp-scraper
+  project: weather-bot
   version: v1.0.0

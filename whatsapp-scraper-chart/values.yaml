@@ -1,9 +1,9 @@
 app:
-  name: whatsapp-scraper
-  namespace: whatsapp-scraper
+  name: weather-bot
+  namespace: weather-bot
 
 image:
-  repository: whatsapp-scraper
+  repository: weather-bot
   tag: latest
   pullPolicy: Never
 
@@ -26,7 +26,7 @@ config:
   DEBUG: "false"
   API_HOST: "0.0.0.0"
   API_PORT: "8000"
-  APP_NAME: "WhatsApp Scraper Bot"
+  APP_NAME: "WhatsApp Weather Bot"
   LOG_LEVEL: "INFO"
 
 secrets:
@@ -35,5 +35,5 @@ secrets:
   TWILIO_WHATSAPP_FROM: "whatsapp:+14155238886"
 
 labels:
-  project: whatsapp-scraper
+  project: weather-bot
   version: v1.0.0

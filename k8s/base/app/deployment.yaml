@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: whatsapp-scraper
-  namespace: whatsapp-scraper
+  name: weather-bot
+  namespace: weather-bot
   labels:
-    app: whatsapp-scraper
+    app: weather-bot
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: whatsapp-scraper
+      app: weather-bot
   template:
     metadata:
       labels:
-        app: whatsapp-scraper
+        app: weather-bot
     spec:
       containers:
-      - name: whatsapp-scraper
-        image: whatsapp-scraper:latest
+      - name: weather-bot
+        image: weather-bot:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 8000
           name: http
         envFrom:
         - configMapRef:
-            name: whatsapp-scraper-config
+            name: weather-bot-config
         - secretRef:
-            name: whatsapp-scraper-secrets
+            name: weather-bot-secrets
         resources:
           limits:
             cpu: 500m

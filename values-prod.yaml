@@ -1,5 +1,5 @@
 app:
-  namespace: whatsapp-scraper-prod
+  namespace: weather-bot-prod
 
 replicas: 2
 
