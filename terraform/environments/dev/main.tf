@@ -100,3 +100,22 @@ module "ecs" {
 
   tags = local.common_tags
 }
+
+# Monitoring Module (Available but not deployed by default for cost savings)
+# To enable: set enable_monitoring = true and run terraform init && terraform apply
+# module "monitoring" {
+#   source = "../../modules/monitoring"
+#
+#   name                   = var.project_name
+#   enable_monitoring      = var.enable_monitoring
+#   vpc_id                 = module.vpc.vpc_id
+#   subnet_ids             = module.vpc.public_subnet_ids
+#   ecs_cluster_id         = module.ecs.cluster_id
+#   execution_role_arn     = module.ecs.task_execution_role_arn
+#   task_role_arn          = module.ecs.task_role_arn
+#   alb_listener_arn       = module.alb.listener_arns["web"]
+#   alb_security_group_id  = module.alb.alb_security_group_id
+#   log_retention_days     = var.log_retention_days
+#
+#   tags = local.common_tags
+# }

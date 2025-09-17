@@ -1,0 +1,189 @@
+# Security Scanning Workflow
+# This workflow runs multiple security scans to identify vulnerabilities
+# It runs on push, PR, and weekly schedule to catch new vulnerabilities
+
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run weekly on Mondays at 2 AM UTC to catch new vulnerabilities
+    - cron: '0 2 * * 1'
+
+jobs:
+  # Job 1: Scan the Docker container for vulnerabilities
+  container-security-scan:
+    name: Container Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Build the Docker image first
+      - name: Build Docker image
+        run: |
+          echo "Building Docker image for security scanning..."
+          docker build -t weather-bot:${{ github.sha }} .
+          docker tag weather-bot:${{ github.sha }} weather-bot:latest
+          echo "Image built successfully"
+
+      # Trivy is a comprehensive security scanner that checks for:
+      # - OS package vulnerabilities (in base image)
+      # - Language-specific vulnerabilities (Python packages)
+      # - Configuration issues
+      # - Secret detection
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'weather-bot:latest'
+          format: 'sarif'  # SARIF format integrates with GitHub Security tab
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'  # Only report significant vulnerabilities
+
+      # Upload results to GitHub Security tab for easy viewing
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()  # Upload even if previous step fails
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # Generate human-readable report for the workflow summary
+      - name: Run Trivy for JSON report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'weather-bot:latest'
+          format: 'json'
+          output: 'trivy-report.json'
+
+      # Create a summary that appears in the GitHub Actions UI
+      - name: Generate vulnerability summary
+        if: always()
+        run: |
+          echo "## Container Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count vulnerabilities by severity
+          CRITICAL=$(cat trivy-report.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' 2>/dev/null || echo 0)
+          HIGH=$(cat trivy-report.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' 2>/dev/null || echo 0)
+          MEDIUM=$(cat trivy-report.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' 2>/dev/null || echo 0)
+          
+          echo "### Vulnerability Summary:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔴 Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟠 High: $HIGH" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟡 Medium: $MEDIUM" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "### Action Required:" >> $GITHUB_STEP_SUMMARY
+            echo "Critical or High severity vulnerabilities found. Please review and update dependencies." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### Good News:" >> $GITHUB_STEP_SUMMARY
+            echo "No critical or high severity vulnerabilities found!" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Fail the build if critical vulnerabilities are found
+      # This prevents deployment of vulnerable containers
+      - name: Fail on critical vulnerabilities
+        run: |
+          CRITICAL_COUNT=$(cat trivy-report.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' 2>/dev/null || echo 0)
+          if [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "Found $CRITICAL_COUNT critical vulnerabilities - failing build"
+            echo "Please update base image or dependencies to fix critical vulnerabilities"
+            exit 1
+          else
+            echo "No critical vulnerabilities found"
+          fi
+
+      # Store scan results as artifacts for later review
+      - name: Upload scan results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: container-security-scan-results
+          path: |
+            trivy-results.sarif
+            trivy-report.json
+
+  # Job 2: Scan Python dependencies for known vulnerabilities
+  dependency-security-scan:
+    name: Python Dependency Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install scanning tools
+        run: |
+          echo "Installing security scanning tools..."
+          python -m pip install --upgrade pip
+          pip install safety pip-audit bandit
+
+      # Safety checks PyPI packages against a database of known vulnerabilities
+      - name: Run Safety check (PyPI vulnerability database)
+        run: |
+          echo "Running Safety check on Python dependencies..."
+          echo "Safety checks installed packages against PyPI's vulnerability database"
+          safety check --json --output safety-report.json || true
+          safety check --short-report || echo "Safety check completed with warnings"
+
+      # pip-audit is another tool that checks for vulnerabilities
+      # It's maintained by PyPA (Python Packaging Authority) and often finds different issues than Safety
+      - name: Run pip-audit (PyPA vulnerability scanner)
+        run: |
+          echo "Running pip-audit for additional vulnerability detection..."
+          pip-audit --format=json --output=pip-audit-report.json || true
+          pip-audit || echo "pip-audit completed with warnings"
+
+      # Bandit scans Python code for common security issues
+      # It looks for hardcoded passwords, SQL injection risks, etc.
+      - name: Run Bandit security linter
+        run: |
+          echo "Running Bandit to scan Python code for security issues..."
+          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ || echo "Bandit scan completed with warnings"
+
+      # Generate summary of dependency scan results
+      - name: Generate dependency scan summary
+        if: always()
+        run: |
+          echo "## Python Dependency Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count Safety vulnerabilities
+          SAFETY_VULNS=$(cat safety-report.json | jq '.vulnerabilities | length' 2>/dev/null || echo 0)
+          echo "- Safety vulnerabilities found: $SAFETY_VULNS" >> $GITHUB_STEP_SUMMARY
+          
+          # Count Bandit issues
+          BANDIT_ISSUES=$(cat bandit-report.json | jq '.results | length' 2>/dev/null || echo 0)
+          echo "- Bandit security issues found: $BANDIT_ISSUES" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$SAFETY_VULNS" -gt 0 ] || [ "$BANDIT_ISSUES" -gt 0 ]; then
+            echo "### Recommendations:" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review the detailed reports in the artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "2. Update vulnerable dependencies to latest secure versions" >> $GITHUB_STEP_SUMMARY
+            echo "3. Fix any code security issues identified by Bandit" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### All Clear!" >> $GITHUB_STEP_SUMMARY
+            echo "No dependency vulnerabilities or code security issues found." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: dependency-security-scan-results
+          path: |
+            safety-report.json
+            pip-audit-report.json
+            bandit-report.json

@@ -8,34 +8,58 @@ services:
       - DEBUG=true
       - API_HOST=0.0.0.0
       - API_PORT=8000
+      - ENABLE_METRICS=true
     volumes:
-      # Optional: mount local env file if present
-      # - ./.env.local:/app/.env
-      # Optional: enable hot-reload by mounting source code during development
-      # - ./src:/app/src
-    depends_on:
-      - redis
+      - ./.env.local:/app/.env  # Mount local environment file (if present)
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
       timeout: 3s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
+  prometheus:
+    image: prom/prometheus:latest
     ports:
-      - "6379:6379"
-
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: scraper_db
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    ports:
-      - "5432:5432"
+      - "9090:9090"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+
+  security-scanner:
+    image: aquasec/trivy:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workspace
+    working_dir: /workspace
+    profiles: ["security"]
+    command: >
+      sh -c "
+        echo 'Scanning weather-bot:latest for vulnerabilities...' &&
+        trivy image --severity HIGH,CRITICAL weather-bot:latest &&
+        echo 'Container scan completed!'
+      "
+    depends_on:
+      - api
 
 volumes:
-  postgres_data:
+  grafana_data:

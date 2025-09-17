@@ -1,35 +1,47 @@
 # Weather Bot (WhatsApp)  
 ![CI](https://github.com/Evyatar-git/whatsapp-weather-bot/actions/workflows/ci.yml/badge.svg)
 
-A FastAPI-based WhatsApp Weather Bot that fetches current weather and replies via WhatsApp (Twilio). The project emphasizes DevOps best practices: containerization, Kubernetes, Helm, Terraform, structured logging, and secure configuration.
+A production-ready WhatsApp Weather Bot built with FastAPI that demonstrates enterprise-grade DevOps practices. Features real-time monitoring, automated security scanning, Infrastructure as Code, and complete AWS deployment pipeline.
 
 ## What it does
 - Accepts a city name over WhatsApp and replies with: city, temperature, description, humidity, feels_like, created_at
 - Stores weather lookups in SQLite for demo/local use
 - Runs in “test mode” when no real OpenWeather API key is provided
 
-## Tech stack
-- **FastAPI** (Python 3.11)
+## Tech Stack
+- **FastAPI** (Python 3.11) with Prometheus metrics
 - **Twilio WhatsApp API** for messaging
 - **SQLite + SQLAlchemy 2.0** for persistence
-- **Pydantic** models for validation
-- **Docker**, **Kubernetes** (Minikube locally), **Helm**, **Terraform** (AWS modules present but optional)
-- **Logging** to console (CloudWatch in AWS)
+- **Pydantic** models with validation
+- **Docker** multi-stage builds with security hardening
+- **Terraform** (custom AWS modules for VPC, ALB, ECS)
+- **Prometheus + Grafana** for monitoring and observability
+- **Automated security scanning** (Trivy, Bandit, Safety)
+- **Pre-commit hooks** for code quality and security
+
+## DevOps Features
+- **Security**: Automated vulnerability scanning, pre-commit hooks, container hardening
+- **Monitoring**: Prometheus metrics, Grafana dashboards, custom business metrics
+- **Infrastructure**: Terraform modules for AWS (VPC, ALB, ECS, ECR)
+- **CI/CD**: GitHub Actions with security gates and automated testing
+- **Containers**: Multi-stage builds, non-root users, health checks
+- **Cost Management**: Minimal resources, destroy/rebuild capability
 
 ## Prerequisites
-- Docker Desktop (optionally with Kubernetes/Minikube)
-- kubectl, Helm (for K8s workflows)
+- Docker Desktop
 - Python 3.11 (optional for local dev without containers)
 - Twilio account with WhatsApp Sandbox (for messaging)
 - OpenWeatherMap API key (optional; enables live mode)
+- AWS CLI configured (for production deployment)
+- Terraform (for infrastructure deployment)
 
 ## Configuration
-Environment variables (via Docker, K8s Secret, or local shell):
+Environment variables (via Docker Compose or AWS Parameter Store):
 - `WEATHER_API_KEY` (required for live mode; otherwise test mode)
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` (for outbound messages)
 - `API_HOST` (default `0.0.0.0`), `API_PORT` (default `8000`), `LOG_LEVEL` (default `INFO`)
 
-Kubernetes Secret template is at `k8s/base/secret/app-secrets.yaml` with placeholders only. Do not commit real secrets.
+AWS Parameter Store is used for secure credential management in production. Do not commit real secrets.
 
 ## Run locally (Docker Compose)
 ```bash
@@ -47,16 +59,6 @@ Notes:
   - Map `./.env.local` to `/app/.env` if you use a local env file
   - Mount `./src` for hot-reload during development
 
-## Local Kubernetes (Minikube)
-```bash
-minikube start
-eval $(minikube docker-env)
-docker build -t weather-bot:latest .
-kubectl apply -k k8s/base/
-kubectl -n weather-bot get pods
-kubectl -n weather-bot port-forward service/weather-bot-service 8000:80
-# API at http://localhost:8000
-```
 
 ## Twilio WhatsApp setup (Sandbox)
 1) Enable WhatsApp Sandbox in Twilio Console
@@ -80,27 +82,14 @@ Webhook security:
 - `POST /weather` – JSON body `{ "city": "London" }`
 - `POST /webhook` – Twilio WhatsApp webhook (form-encoded)
 
-## Project layout (high-level)
-```
-src/
-  api/main.py           # FastAPI app, /health, /weather, /webhook
-  config/settings.py    # Env-driven configuration
-  config/logging.py     # Console logging only
-  database/config.py    # SQLAlchemy engine, models, init/health
-  models/schemas.py     # Pydantic request/response models
-  services/weather.py   # WeatherService (API or test mode)
-k8s/base/               # Namespace, Deployment, Service, ConfigMap, Secret
-whatsapp-weather-bot-chart/ # Helm chart (values updated for weather-bot)
-terraform/              # AWS modules (VPC, ALB, ECS) for future use
-```
 
 ## Security and secrets
-- Do not commit real secrets. Placeholders only in K8s Secret and Helm values
-- For AWS, reference SSM Parameter Store ARNs (see Terraform `environments/dev/main.tf`)
-- `.gitignore` excludes `.env*`, `*.db`, `*.log`, caches
+- Do not commit real secrets. Use AWS Parameter Store for production
+- Terraform references SSM Parameter Store ARNs (see `terraform/environments/dev/main.tf`)
+- `.gitignore` excludes `.env*`, `*.db`, `*.log`, security reports
 
 ## Cost efficiency
-- Local-first dev with Minikube and Docker Compose
+- Local-first development with Docker Compose
 - Test mode avoids external API calls when no key is set
 - Terraform modules prepared for on-demand deployments (destroy when not in use)
 
@@ -109,25 +98,51 @@ terraform/              # AWS modules (VPC, ALB, ECS) for future use
 - SQLite file `weather_bot.db` is volume-mounted in Docker Compose
 - Pydantic validates input (rejects empty or numeric city names)
 
-## Developer workflow
-
-### Make targets
+## Quick Start
 ```bash
-# run tests
-make test
+# 1. Clone and setup
+git clone <repository-url>
+cd whatsapp-weather-bot
 
-# lint (ruff) and type-check (mypy)
-make lint
-make type
+# 2. Install pre-commit hooks (recommended)
+make pre-commit-install
 
-# format with ruff
-make fmt
+# 3. Run locally with monitoring
+docker compose up --build
 
-# run the full local check pipeline (lint + type + tests)
-make ci
+# 4. Access services
+# - Application: http://localhost:8000
+# - Grafana: http://localhost:3000 (admin/admin)
+# - Prometheus: http://localhost:9090
+```
 
-# stop the stack
-make stop
+## Developer Workflow
+
+### Development Commands
+```bash
+# Setup and quality
+make pre-commit-install     # Install pre-commit hooks
+make security-scan         # Run comprehensive security scan
+make ci                    # Full check pipeline (lint + type + tests)
+
+# Local development
+docker compose up --build   # Start app with monitoring
+make monitoring-up         # Start monitoring stack only
+make logs                  # View application logs
+
+# Testing
+make test                  # Run pytest suite
+curl -X POST http://localhost:8000/weather \
+  -H "Content-Type: application/json" \
+  -d '{"city":"London"}'   # Test weather API
+```
+
+### Production Deployment
+```bash
+# AWS deployment (requires AWS CLI configured)
+make aws-setup-secrets     # Store credentials in Parameter Store
+make aws-deploy-production # Deploy complete infrastructure
+make aws-destroy          # Destroy infrastructure (stop billing)
 ```
 
 ### CI
@@ -136,7 +151,30 @@ make stop
   - Failing checks block merges so the repo stays healthy
 
 ## Production deploy (AWS/ECS/ALB)
-High-level steps:
+Automated deployment with cost management:
+
+### Quick Deploy:
+```bash
+# 1. Store secrets in AWS Parameter Store
+make aws-setup-secrets
+
+# 2. Deploy complete infrastructure + application  
+make aws-deploy-production
+
+# 3. Configure Twilio webhook with provided ALB URL
+# 4. Test WhatsApp integration
+```
+
+### Cost Management:
+```bash
+# Stop ALL billing immediately
+make aws-destroy
+
+# Check current costs
+make aws-status
+```
+
+### Manual Steps:
 1. Save secrets in AWS SSM Parameter Store:
    - `weather-bot-account-sid`, `weather-bot-auth-token`, `weather-bot-whatsapp-from`
    - `weather-bot-openweather-key`
@@ -146,11 +184,44 @@ High-level steps:
 4. In Twilio Sandbox, set webhook to `http://<ALB_DNS>/webhook`.
 5. Test by sending a city in WhatsApp.
 
+### Estimated Costs:
+- **Application only**: ~$24/month
+- **With monitoring**: ~$37/month
+- **When destroyed**: $0/month
+
 Notes
 - ECS tasks read secrets from SSM; redeploy to pick up changes.
 - Logs are in CloudWatch `/ecs/weather-bot`.
 - SQLite data is ephemeral in ECS; use RDS if persistence is required.
 
-## Roadmap
-- EKS or ECS deployment with CI/CD
-- Observability (structured logs/metrics)
+## Project Architecture
+
+```
+├── src/                    # Application source code
+│   ├── api/               # FastAPI endpoints with Prometheus metrics
+│   ├── config/            # Settings and logging configuration
+│   ├── database/          # SQLAlchemy models and database setup
+│   ├── models/            # Pydantic request/response schemas
+│   └── services/          # Business logic (weather API integration)
+├── terraform/             # Infrastructure as Code
+│   ├── modules/           # Custom Terraform modules (VPC, ALB, ECS, Monitoring)
+│   └── environments/      # Environment-specific configurations
+├── k8s/                   # Kubernetes manifests
+├── monitoring/            # Prometheus and Grafana configurations
+├── scripts/               # Deployment and utility scripts
+├── tests/                 # Comprehensive test suite
+└── .github/workflows/     # CI/CD pipeline with security scanning
+```
+
+## Security Features
+- **Vulnerability Scanning**: Automated container and dependency scanning
+- **Pre-commit Hooks**: Code quality and security checks before commits
+- **Container Hardening**: Multi-stage builds, non-root users, minimal attack surface
+- **Secrets Management**: AWS Parameter Store for production credentials
+- **Network Security**: VPC isolation, security groups, ALB with health checks
+
+## Monitoring & Observability
+- **Custom Metrics**: Weather requests by city, WhatsApp message types, database operations
+- **Grafana Dashboards**: Real-time visualization of application and business metrics
+- **Health Checks**: Application and infrastructure health monitoring
+- **Structured Logging**: JSON logs with correlation IDs and context

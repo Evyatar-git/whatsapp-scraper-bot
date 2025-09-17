@@ -1,23 +1,23 @@
-variable "project_name" {
-  description = "Name of the project"
-  type        = string
-  default     = "weather-bot"
-}
-
-variable "environment" {
-  description = "Environment name"
-  type        = string
-  default     = "dev"
-}
-
 variable "aws_region" {
   description = "AWS region"
   type        = string
   default     = "us-east-1"
 }
 
+variable "project_name" {
+  description = "Project name"
+  type        = string
+  default     = "weather-bot"
+}
+
+variable "environment" {
+  description = "Environment"
+  type        = string
+  default     = "dev"
+}
+
 variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+  description = "VPC CIDR"
   type        = string
   default     = "10.0.0.0/16"
 }
@@ -29,25 +29,44 @@ variable "public_subnet_count" {
 }
 
 variable "enable_nat_gateway" {
-  description = "Enable NAT Gateway for private subnets"
+  description = "Enable NAT gateway"
   type        = bool
   default     = false
 }
 
-variable "desired_count" {
-  description = "Desired number of ECS tasks"
-  type        = number
-  default     = 1
-}
-
+# Cost optimization variables
 variable "container_cpu" {
-  description = "CPU units for container (1024 = 1 vCPU)"
+  description = "Container CPU units (256 = 0.25 vCPU)"
   type        = number
-  default     = 256
+  default     = 256  # Minimal for cost savings
 }
 
 variable "container_memory" {
-  description = "Memory for container in MB"
+  description = "Container memory in MB"
   type        = number
-  default     = 512
+  default     = 512  # Minimal for cost savings
+}
+
+variable "desired_count" {
+  description = "Desired number of tasks"
+  type        = number
+  default     = 1    # Minimal for cost savings
+}
+
+variable "enable_container_insights" {
+  description = "Enable ECS Container Insights (costs extra)"
+  type        = bool
+  default     = false  # Disabled for cost savings
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention days"
+  type        = number
+  default     = 7      # Reduced for cost savings
+}
+
+variable "enable_monitoring" {
+  description = "Enable monitoring stack (Prometheus + Grafana)"
+  type        = bool
+  default     = false  # Set to true to enable monitoring
 }

@@ -14,6 +14,8 @@ import logging
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.request_validator import RequestValidator
 import html
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram
 
 # Setup logging
 logger = setup_logging()
@@ -22,6 +24,36 @@ logger = setup_logging()
 init_database()
 
 app = FastAPI(title="WhatsApp Weather Bot", version="1.0.0")
+
+# Prometheus instrumentation
+instrumentator = Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    should_respect_env_var=True,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics"],
+    env_var_name="ENABLE_METRICS",
+)
+instrumentator.instrument(app).expose(app)
+
+# Custom business metrics
+weather_requests_total = Counter(
+    'weather_requests_total', 
+    'Total weather requests', 
+    ['city', 'status']
+)
+
+whatsapp_messages_total = Counter(
+    'whatsapp_messages_total', 
+    'Total WhatsApp messages processed', 
+    ['message_type']
+)
+
+database_operations_duration = Histogram(
+    'database_operations_duration_seconds',
+    'Database operation duration',
+    ['operation']
+)
 
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
@@ -182,19 +214,25 @@ async def get_weather(request: WeatherRequest, db: Session = Depends(get_db)):
     logger.info(f"Weather API requested for city: {request.city}")
     
     try:
-        result = weather_service.get_current_weather(city=request.city, db=db)
+        with database_operations_duration.labels(operation='weather_lookup').time():
+            result = weather_service.get_current_weather(city=request.city, db=db)
         
         if result["status"] == "success":
             data = result["data"]
-            weather_data = WeatherData(
-                city=data["city"],
-                temperature=data["temperature"],
-                description=data["description"],
-                humidity=data.get("humidity"),
-                feels_like=data.get("feels_like")
-            )
-            db.add(weather_data)
-            db.commit()
+            
+            with database_operations_duration.labels(operation='weather_insert').time():
+                weather_data = WeatherData(
+                    city=data["city"],
+                    temperature=data["temperature"],
+                    description=data["description"],
+                    humidity=data.get("humidity"),
+                    feels_like=data.get("feels_like")
+                )
+                db.add(weather_data)
+                db.commit()
+            
+            # Record successful weather request
+            weather_requests_total.labels(city=request.city, status='success').inc()
             
             response = WeatherResponse(
                 city=data["city"],
@@ -208,6 +246,8 @@ async def get_weather(request: WeatherRequest, db: Session = Depends(get_db)):
             logger.info(f"Weather API completed successfully for {request.city}")
             return response
         else:
+            # Record failed weather request
+            weather_requests_total.labels(city=request.city, status='error').inc()
             logger.error(f"Weather API failed for {request.city}: {result.get('error')}")
             raise HTTPException(
                 status_code=400,
@@ -215,6 +255,8 @@ async def get_weather(request: WeatherRequest, db: Session = Depends(get_db)):
             )
             
     except Exception as e:
+        # Record failed weather request
+        weather_requests_total.labels(city=request.city, status='exception').inc()
         logger.error(f"Weather API error for {request.city}: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
@@ -240,8 +282,10 @@ async def webhook(request: Request, From: str = Form(...), Body: str = Form(...)
         message_lower = message_text.lower()
 
         if message_lower == "ping":
+            whatsapp_messages_total.labels(message_type='ping').inc()
             reply_text = "Weather bot is working!"
         elif message_lower in ["hello", "hi", "start"]:
+            whatsapp_messages_total.labels(message_type='greeting').inc()
             reply_text = (
                 "WhatsApp Weather Bot\n\n"
                 "Commands:\n"
@@ -251,6 +295,7 @@ async def webhook(request: Request, From: str = Form(...), Body: str = Form(...)
                 "Example: London"
             )
         elif message_lower in ["help", "?"]:
+            whatsapp_messages_total.labels(message_type='help').inc()
             reply_text = (
                 "Available commands:\n"
                 "• Send city name for weather\n"
@@ -261,18 +306,23 @@ async def webhook(request: Request, From: str = Form(...), Body: str = Form(...)
         else:
             # Full weather flow: validate input, fetch weather, format message
             try:
+                whatsapp_messages_total.labels(message_type='weather_request').inc()
                 weather_request = WeatherRequest(city=message_text)
                 result = weather_service.get_current_weather(city=weather_request.city, db=None)
                 if result["status"] == "success":
+                    weather_requests_total.labels(city=weather_request.city, status='success').inc()
                     reply_text = weather_service.format_weather_message({
                         "status": "success",
                         "data": result["data"]
                     })
                 else:
+                    weather_requests_total.labels(city=weather_request.city, status='error').inc()
                     reply_text = f"Weather Error: {result.get('error', 'Unknown error')}"
             except ValueError as ve:
+                whatsapp_messages_total.labels(message_type='invalid_input').inc()
                 reply_text = f"Invalid Input: {str(ve)}"
             except Exception as e:
+                whatsapp_messages_total.labels(message_type='error').inc()
                 logger.exception(f"Weather fetch error: {str(e)}")
                 reply_text = "Sorry, an error occurred fetching the weather. Please try again."
 

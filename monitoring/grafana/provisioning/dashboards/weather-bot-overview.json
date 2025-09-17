@@ -1,0 +1,68 @@
+{
+  "id": null,
+  "title": "Weather Bot - Overview",
+  "tags": ["weather-bot"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate (req/sec)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{job=\"weather-bot\"}[5m])",
+          "legendFormat": "Requests/sec"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": {"mode": "palette-classic"},
+          "mappings": [],
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 50}
+            ]
+          }
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Weather Requests by City",
+      "type": "piechart",
+      "targets": [
+        {
+          "expr": "sum by (city) (weather_requests_total)",
+          "legendFormat": "{{city}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0}
+    },
+    {
+      "id": 3,
+      "title": "HTTP Requests Over Time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{method}} {{handler}} ({{status}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {"h": 8, "w": 18, "x": 0, "y": 8}
+    }
+  ],
+  "time": {"from": "now-1h", "to": "now"},
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "version": 1,
+  "uid": "weather-bot-overview"
+}

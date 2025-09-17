@@ -126,3 +126,18 @@ kubeconfig
 *.tgz
 charts/*.tgz
 .helmignoreNUL
+
+# Security scanning reports
+security-reports/
+security-report.json
+safety-report.json
+bandit-report.json
+pip-audit-report.json
+trivy-report.json
+safety_results.json
+
+# AWS deployment outputs
+.aws-outputs
+
+# Pre-commit
+.pre-commit-config.yaml.backup
