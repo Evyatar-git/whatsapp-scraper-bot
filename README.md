@@ -3,6 +3,15 @@
 
 A production-ready WhatsApp Weather Bot built with FastAPI that demonstrates enterprise-grade DevOps practices. Features real-time monitoring, automated security scanning, Infrastructure as Code, and complete AWS deployment pipeline.
 
+## 🔄 **Available Deployment Options**
+
+This project showcases multiple deployment strategies:
+
+- **`main`** & **`ecs-production`**: AWS ECS with Fargate (production-ready, cost-optimized ~$24/month)
+- **`eks-kubernetes`**: AWS EKS with advanced Kubernetes features (interview-focused, ~$105/month)
+
+Choose the branch that best fits your needs - ECS for production efficiency, EKS for Kubernetes expertise demonstration.
+
 ## What it does
 - Accepts a city name over WhatsApp and replies with: city, temperature, description, humidity, feels_like, created_at
 - Stores weather lookups in SQLite for demo/local use
