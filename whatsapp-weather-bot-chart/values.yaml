@@ -1,17 +1,24 @@
+# WhatsApp Weather Bot Helm Chart Values
+# This file contains default values for the weather bot deployment on EKS
+
 app:
   name: weather-bot
   namespace: weather-bot
 
+# Container image configuration
 image:
-  repository: weather-bot
-  tag: latest
-  pullPolicy: Never
+  # ECR repository URL will be set during deployment
+  repository: ""  # Will be populated with ECR URL
+  tag: "latest"
+  pullPolicy: Always  # Changed from Never for production
 
+# Kubernetes service configuration
 service:
-  type: NodePort
+  type: ClusterIP  # Changed from NodePort - ALB will handle external access
   port: 80
   targetPort: 8000
 
+# Resource limits and requests
 resources:
   limits:
     cpu: 500m
@@ -20,20 +27,56 @@ resources:
     cpu: 250m
     memory: 256Mi
 
-replicas: 1
+# Number of replicas
+replicas: 2  # Increased for HA
 
+# Application configuration (non-sensitive)
 config:
   DEBUG: "false"
   API_HOST: "0.0.0.0"
   API_PORT: "8000"
-  APP_NAME: "WhatsApp Weather Bot"
   LOG_LEVEL: "INFO"
+  ENABLE_METRICS: "true"
 
+# Secrets configuration (will use AWS Parameter Store in production)
 secrets:
-  TWILIO_ACCOUNT_SID: "your_account_sid_here"
-  TWILIO_AUTH_TOKEN: "your_auth_token_here"
-  TWILIO_WHATSAPP_FROM: "whatsapp:+14155238886"
+  # These will be populated from AWS Parameter Store
+  # Format: /weather-bot/PARAMETER_NAME
+  TWILIO_ACCOUNT_SID: ""
+  TWILIO_AUTH_TOKEN: ""
+  TWILIO_WHATSAPP_FROM: ""
+  WEATHER_API_KEY: ""
 
+# Ingress configuration for ALB
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+  hosts:
+    - host: ""  # Will be set to ALB DNS name
+      paths:
+        - path: /
+          pathType: Prefix
+
+# Health checks
+healthcheck:
+  liveness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Labels applied to all resources
 labels:
   project: weather-bot
-  version: v1.0.0
+  environment: production
+  managedBy: helm

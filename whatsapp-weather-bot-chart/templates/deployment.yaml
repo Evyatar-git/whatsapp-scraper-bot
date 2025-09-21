@@ -35,15 +35,19 @@ spec:
             name: {{ .Values.app.name }}-secrets
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
+        {{- if .Values.healthcheck.liveness.enabled }}
         livenessProbe:
           httpGet:
-            path: /health
+            path: {{ .Values.healthcheck.liveness.path }}
             port: {{ .Values.service.targetPort }}
-          initialDelaySeconds: 30
-          periodSeconds: 10
+          initialDelaySeconds: {{ .Values.healthcheck.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthcheck.liveness.periodSeconds }}
+        {{- end }}
+        {{- if .Values.healthcheck.readiness.enabled }}
         readinessProbe:
           httpGet:
-            path: /health
+            path: {{ .Values.healthcheck.readiness.path }}
             port: {{ .Values.service.targetPort }}
-          initialDelaySeconds: 5
-          periodSeconds: 5
+          initialDelaySeconds: {{ .Values.healthcheck.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthcheck.readiness.periodSeconds }}
+        {{- end }}

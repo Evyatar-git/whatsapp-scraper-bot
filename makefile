@@ -90,6 +90,21 @@ aws-deploy-production:
 aws-destroy:
 	@echo "Destroying AWS infrastructure..."
 	cd terraform/environments/dev && terraform destroy
+	
+# EKS specific commands
+eks-connect:
+	@echo "Configuring kubectl for EKS cluster..."
+	aws eks update-kubeconfig --region us-east-1 --name weather-bot
+
+eks-status:
+	@echo "Checking EKS cluster status..."
+	kubectl get nodes
+	kubectl get pods -n weather-bot
+	kubectl get ingress -n weather-bot
+
+eks-logs:
+	@echo "Getting application logs from EKS..."
+	kubectl logs -l app=weather-bot -n weather-bot --tail=100 -f
 
 aws-status:
 	@echo "Checking AWS deployment status..."

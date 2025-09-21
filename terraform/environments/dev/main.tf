@@ -27,95 +27,50 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  name                 = var.project_name
-  vpc_cidr            = var.vpc_cidr
-  public_subnet_count = var.public_subnet_count
-  enable_nat_gateway  = var.enable_nat_gateway
-  tags               = local.common_tags
+  name                  = var.project_name
+  vpc_cidr             = var.vpc_cidr
+  public_subnet_count  = var.public_subnet_count
+  private_subnet_count = var.private_subnet_count
+  enable_nat_gateway   = var.enable_nat_gateway
+  tags                = local.common_tags
 }
 
-module "alb" {
-  source = "../../modules/alb"
 
-  name       = var.project_name
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.public_subnet_ids
+module "eks" {
+  source = "../../modules/eks"
 
-  target_groups = {
-    app = {
-      port        = 8000
-      protocol    = "HTTP"
-      target_type = "ip"
-      health_check = {
-        enabled             = true
-        healthy_threshold   = 2
-        interval            = 30
-        matcher             = "200"
-        path                = "/health"
-        port                = "traffic-port"
-        protocol            = "HTTP"
-        timeout             = 5
-        unhealthy_threshold = 2
-      }
-    }
-  }
+  name             = var.project_name
+  vpc_id           = module.vpc.vpc_id
+  subnet_ids       = module.vpc.public_subnet_ids
+  pod_subnet_ids   = length(module.vpc.private_subnet_ids) > 0 ? module.vpc.private_subnet_ids : module.vpc.public_subnet_ids
 
-  listeners = {
-    web = {
-      port             = 80
-      protocol         = "HTTP"
-      target_group_key = "app"
-    }
-  }
+  cluster_version               = "1.28"
+  node_group_instance_types     = ["t3.small", "t3.medium"]
+  node_group_desired_size       = 2
+  node_group_max_size           = 4
+  node_group_min_size           = 1
+  node_group_capacity_type      = "SPOT"
+  enable_irsa                   = true
 
   tags = local.common_tags
 }
 
-module "ecs" {
-  source = "../../modules/ecs"
+module "alb_eks" {
+  source = "../../modules/alb-eks"
 
-  name                = var.project_name
-  vpc_id              = module.vpc.vpc_id
-  subnet_ids          = module.vpc.public_subnet_ids
-  alb_security_group_id = module.alb.alb_security_group_id
-  target_group_arn    = module.alb.target_group_arns["app"]
-  
-  container_port      = 8000
-  desired_count       = var.desired_count
-  cpu                 = var.container_cpu
-  memory              = var.container_memory
-  
-  environment_variables = {
-    DEBUG     = "false"
-    API_HOST  = "0.0.0.0"
-    API_PORT  = "8000"
-  }
-
-  secrets = {
-    TWILIO_ACCOUNT_SID   = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-account-sid"
-    TWILIO_AUTH_TOKEN    = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-auth-token"
-    TWILIO_WHATSAPP_FROM = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-whatsapp-from"
-    WEATHER_API_KEY      = "arn:aws:ssm:us-east-1:719737572192:parameter/weather-bot-openweather-key"
-  }
+  name                      = var.project_name
+  vpc_id                    = module.vpc.vpc_id
+  subnet_ids                = module.vpc.public_subnet_ids
+  cluster_name              = module.eks.cluster_id
+  cluster_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
+  node_security_group_id    = module.eks.node_group_security_group_id
+  enable_aws_load_balancer_controller = true
 
   tags = local.common_tags
 }
 
 # Monitoring Module (Available but not deployed by default for cost savings)
-# To enable: set enable_monitoring = true and run terraform init && terraform apply
-# module "monitoring" {
-#   source = "../../modules/monitoring"
-#
-#   name                   = var.project_name
-#   enable_monitoring      = var.enable_monitoring
-#   vpc_id                 = module.vpc.vpc_id
-#   subnet_ids             = module.vpc.public_subnet_ids
-#   ecs_cluster_id         = module.ecs.cluster_id
-#   execution_role_arn     = module.ecs.task_execution_role_arn
-#   task_role_arn          = module.ecs.task_role_arn
-#   alb_listener_arn       = module.alb.listener_arns["web"]
-#   alb_security_group_id  = module.alb.alb_security_group_id
-#   log_retention_days     = var.log_retention_days
-#
-#   tags = local.common_tags
-# }
+# To enable monitoring on EKS: Deploy Prometheus and Grafana using Helm charts
+# Example:
+# helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+# helm install prometheus prometheus-community/kube-prometheus-stack
