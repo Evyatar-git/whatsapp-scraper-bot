@@ -139,5 +139,18 @@ safety_results.json
 # AWS deployment outputs
 .aws-outputs
 
+# EKS/Kubernetes runtime files
+.kube/config.backup
+kubectl-*
+eksctl-*
+
+# Terraform state backups (our migration created these)
+backup/
+terraform-state-*/
+
 # Pre-commit
 .pre-commit-config.yaml.backup
+
+# Local testing and port forwarding
+*.pid
+.port-forward

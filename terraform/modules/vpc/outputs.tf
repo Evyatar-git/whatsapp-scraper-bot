@@ -13,6 +13,11 @@ output "public_subnet_ids" {
   value       = aws_subnet.public[*].id
 }
 
+output "private_subnet_ids" {
+  description = "IDs of the private subnets"
+  value       = var.enable_nat_gateway ? aws_subnet.private[*].id : []
+}
+
 output "internet_gateway_id" {
   description = "ID of the Internet Gateway"
   value       = aws_internet_gateway.main.id

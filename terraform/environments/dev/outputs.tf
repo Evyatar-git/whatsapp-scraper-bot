@@ -3,22 +3,32 @@ output "vpc_id" {
   value       = module.vpc.vpc_id
 }
 
-output "load_balancer_dns" {
-  description = "DNS name of the load balancer"
-  value       = module.alb.alb_dns_name
+output "eks_cluster_id" {
+  description = "ID of the EKS cluster"
+  value       = module.eks.cluster_id
 }
 
-output "load_balancer_url" {
-  description = "URL of the load balancer"
-  value       = "http://${module.alb.alb_dns_name}"
+output "eks_cluster_endpoint" {
+  description = "Endpoint for EKS control plane"
+  value       = module.eks.cluster_endpoint
+}
+
+output "eks_cluster_certificate_authority_data" {
+  description = "Base64 encoded certificate data required to communicate with the cluster"
+  value       = module.eks.cluster_certificate_authority_data
+}
+
+output "aws_load_balancer_controller_role_arn" {
+  description = "IAM role ARN for AWS Load Balancer Controller"
+  value       = module.alb_eks.aws_load_balancer_controller_role_arn
+}
+
+output "cluster_oidc_issuer_url" {
+  description = "The URL on the EKS cluster for the OpenID Connect identity provider"
+  value       = module.eks.cluster_oidc_issuer_url
 }
 
 output "ecr_repository_url" {
-  description = "URL of the ECR repository"
-  value       = module.ecs.ecr_repository_url
-}
-
-output "ecs_cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = module.ecs.cluster_name
+  description = "ECR repository URL for container images"
+  value       = module.eks.ecr_repository_url
 }

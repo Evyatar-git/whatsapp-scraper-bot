@@ -28,10 +28,16 @@ variable "public_subnet_count" {
   default     = 2
 }
 
+variable "private_subnet_count" {
+  description = "Number of private subnets for Kubernetes pods"
+  type        = number
+  default     = 2
+}
+
 variable "enable_nat_gateway" {
-  description = "Enable NAT gateway"
+  description = "Enable NAT gateway for private subnets"
   type        = bool
-  default     = false
+  default     = false  # Disabled for cost savings
 }
 
 # Cost optimization variables

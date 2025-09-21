@@ -109,17 +109,17 @@ def handle_message(phone_number: str, message_text: str, db: Session):
         response = """WhatsApp Weather Bot
 
 Commands:
-• Send city name for weather (e.g., 'London' or 'New York')
-• 'help' for commands
-• 'ping' to test
+- Send city name for weather (e.g., 'London' or 'New York')
+- 'help' for commands
+- 'ping' to test
 
 Example: London"""
         
     elif message in ["help", "?"]:
         response = """Available commands:
-• Send city name for weather
-• 'ping' - test bot
-• 'help' - show commands
+- Send city name for weather
+- 'ping' - test bot
+- 'help' - show commands
 
 Supported: Any city worldwide"""
         
@@ -289,18 +289,18 @@ async def webhook(request: Request, From: str = Form(...), Body: str = Form(...)
             reply_text = (
                 "WhatsApp Weather Bot\n\n"
                 "Commands:\n"
-                "• Send city name for weather (e.g., 'London' or 'New York')\n"
-                "• 'help' for commands\n"
-                "• 'ping' to test\n\n"
+                "- Send city name for weather (e.g., 'London' or 'New York')\n"
+                "- 'help' for commands\n"
+                "- 'ping' to test\n\n"
                 "Example: London"
             )
         elif message_lower in ["help", "?"]:
             whatsapp_messages_total.labels(message_type='help').inc()
             reply_text = (
                 "Available commands:\n"
-                "• Send city name for weather\n"
-                "• 'ping' - test bot\n"
-                "• 'help' - show commands\n\n"
+                "- Send city name for weather\n"
+                "- 'ping' - test bot\n"
+                "- 'help' - show commands\n\n"
                 "Supported: Any city worldwide"
             )
         else:
