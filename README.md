@@ -194,17 +194,17 @@ terraform init && terraform apply
 
 # 2. Build and push Docker image
 docker build -t weather-bot .
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 719737572192.dkr.ecr.us-east-1.amazonaws.com
-docker tag weather-bot:latest 719737572192.dkr.ecr.us-east-1.amazonaws.com/weather-bot:latest
-docker push 719737572192.dkr.ecr.us-east-1.amazonaws.com/weather-bot:latest
+aws ecr get-login-password --region <AWS_REGION> | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com
+docker tag weather-bot:latest <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/weather-bot:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/weather-bot:latest
 
 # 3. Deploy application with Helm
 helm upgrade --install weather-bot ./whatsapp-weather-bot-chart \
     --namespace weather-bot \
-    --set image.repository=719737572192.dkr.ecr.us-east-1.amazonaws.com/weather-bot \
+    --set image.repository=<AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/weather-bot \
     --set image.tag=latest \
-    --set iam.roleArn=arn:aws:iam::719737572192:role/weather-bot-parameter-store-role \
-    --set aws.region=us-east-1
+    --set iam.roleArn=arn:aws:iam::<AWS_ACCOUNT_ID>:role/weather-bot-parameter-store-role \
+    --set aws.region=<AWS_REGION>
 ```
 
 ### Cost Management:
