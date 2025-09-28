@@ -67,3 +67,18 @@ output "ecr_repository_arn" {
   description = "ECR repository ARN"
   value       = aws_ecr_repository.app.arn
 }
+
+output "ecr_init_repository_url" {
+  description = "ECR repository URL for init container images"
+  value       = aws_ecr_repository.init.repository_url
+}
+
+output "ecr_init_repository_arn" {
+  description = "ECR repository ARN for init container"
+  value       = aws_ecr_repository.init.arn
+}
+
+output "parameter_store_role_arn" {
+  description = "IAM role ARN for accessing Parameter Store"
+  value       = var.enable_irsa ? aws_iam_role.parameter_store_role[0].arn : null
+}

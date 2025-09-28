@@ -21,6 +21,7 @@ spec:
         {{ $key }}: {{ $value | quote }}
         {{- end }}
     spec:
+      serviceAccountName: {{ .Values.app.name }}-sa
       containers:
       - name: {{ .Values.app.name }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -31,14 +32,19 @@ spec:
         envFrom:
         - configMapRef:
             name: {{ .Values.app.name }}-config
-        - secretRef:
-            name: {{ .Values.app.name }}-secrets
+        # AWS region for Parameter Store access
+        env:
+        - name: AWS_REGION
+          value: "{{ .Values.aws.region }}"
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
         {{- if .Values.healthcheck.liveness.enabled }}
         livenessProbe:
           httpGet:
-            path: {{ .Values.healthcheck.liveness.path }}
+            path: {{ .Values.healthcheck.path }}
             port: {{ .Values.service.targetPort }}
           initialDelaySeconds: {{ .Values.healthcheck.liveness.initialDelaySeconds }}
           periodSeconds: {{ .Values.healthcheck.liveness.periodSeconds }}
@@ -46,8 +52,11 @@ spec:
         {{- if .Values.healthcheck.readiness.enabled }}
         readinessProbe:
           httpGet:
-            path: {{ .Values.healthcheck.readiness.path }}
+            path: {{ .Values.healthcheck.path }}
             port: {{ .Values.service.targetPort }}
           initialDelaySeconds: {{ .Values.healthcheck.readiness.initialDelaySeconds }}
           periodSeconds: {{ .Values.healthcheck.readiness.periodSeconds }}
         {{- end }}
+      volumes:
+      - name: data-volume
+        emptyDir: {}

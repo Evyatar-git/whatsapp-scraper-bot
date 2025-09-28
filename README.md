@@ -1,16 +1,24 @@
-# Weather Bot (WhatsApp)  
+# WhatsApp Weather Bot
 ![CI](https://github.com/Evyatar-git/whatsapp-weather-bot/actions/workflows/ci.yml/badge.svg)
 
-A production-ready WhatsApp Weather Bot built with FastAPI featuring enterprise-grade DevOps practices. Includes real-time monitoring, automated security scanning, Infrastructure as Code, and complete AWS deployment pipeline.
+A production-ready WhatsApp Weather Bot built with FastAPI featuring enterprise-grade DevOps practices. Includes real-time monitoring, automated security scanning, Infrastructure as Code, and complete AWS EKS deployment pipeline.
 
-## 🔄 **Available Deployment Options**
+## Recent Updates (September 2025)
 
-This project showcases multiple deployment strategies:
+### Major Improvements:
+- **Migrated to EKS**: Full Kubernetes deployment with AWS Load Balancer Controller
+- **Fixed Critical Bug**: Resolved weather data access error in webhook processing
+- **Enhanced Security**: Added `force_delete` to ECR repositories for cleaner deployments
+- **Simplified Secrets**: Direct Parameter Store access via IRSA (no init containers)
+- **Improved Infrastructure**: Auto-deploying ALB Controller, better subnet tagging
+- **Code Quality**: Removed redundancies, cleaned up dependencies, consolidated logic
 
-- **`main`** & **`ecs-production`**: AWS ECS with Fargate (production-ready, cost-optimized ~$24/month)
-- **`eks-kubernetes`**: AWS EKS with advanced Kubernetes features (interview-focused, ~$105/month)
-
-Choose the branch that best fits your needs - ECS for production efficiency, EKS for Kubernetes expertise demonstration.
+### Architecture:
+- **AWS EKS** with managed node groups (SPOT instances for cost optimization)
+- **AWS Load Balancer Controller** automatically deployed via Terraform
+- **IRSA (IAM Roles for Service Accounts)** for secure Parameter Store access
+- **SQLite** with proper volume mounts for container compatibility
+- **Helm charts** for application deployment and management
 
 ## What it does
 - Accepts a city name over WhatsApp and replies with: city, temperature, description, humidity, feels_like, created_at
@@ -163,39 +171,52 @@ make aws-destroy          # Destroy infrastructure (stop billing)
   - Install deps, run tests, ruff lint, and mypy type checks
   - Failing checks block merges so the repo stays healthy
 
-## Production deploy (AWS/EKS/ALB)
+## Production Deployment (AWS/EKS/ALB)
 Automated deployment with Kubernetes and cost management:
 
 ### Quick Deploy:
 ```bash
 # 1. Store secrets in AWS Parameter Store
-make aws-setup-secrets
+./scripts/setup-aws-secrets.sh
 
 # 2. Deploy complete infrastructure + application to EKS
-make aws-deploy-production
+./scripts/deploy-aws-production.sh
 
 # 3. Configure Twilio webhook with provided ALB URL
 # 4. Test WhatsApp integration
 ```
 
+### Alternative Manual Steps:
+```bash
+# 1. Deploy infrastructure
+cd terraform/environments/dev
+terraform init && terraform apply
+
+# 2. Build and push Docker image
+docker build -t weather-bot .
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 719737572192.dkr.ecr.us-east-1.amazonaws.com
+docker tag weather-bot:latest 719737572192.dkr.ecr.us-east-1.amazonaws.com/weather-bot:latest
+docker push 719737572192.dkr.ecr.us-east-1.amazonaws.com/weather-bot:latest
+
+# 3. Deploy application with Helm
+helm upgrade --install weather-bot ./whatsapp-weather-bot-chart \
+    --namespace weather-bot \
+    --set image.repository=719737572192.dkr.ecr.us-east-1.amazonaws.com/weather-bot \
+    --set image.tag=latest \
+    --set iam.roleArn=arn:aws:iam::719737572192:role/weather-bot-parameter-store-role \
+    --set aws.region=us-east-1
+```
+
 ### Cost Management:
 ```bash
 # Stop ALL billing immediately
-make aws-destroy
+cd terraform/environments/dev
+terraform destroy -auto-approve
 
-# Check current costs
-make aws-status
+# Force cleanup ECR repositories if needed
+aws ecr delete-repository --repository-name weather-bot --force
+aws ecr delete-repository --repository-name weather-bot-init --force
 ```
-
-### Manual Steps:
-1. Save secrets in AWS SSM Parameter Store:
-   - `weather-bot-account-sid`, `weather-bot-auth-token`, `weather-bot-whatsapp-from`
-   - `weather-bot-openweather-key`
-2. In `terraform/environments/dev`:
-   - `terraform init && terraform apply`
-3. Build and push Docker image to ECR; deploy to EKS using Helm.
-4. In Twilio Console, set webhook to `http://<ALB_DNS>/webhook`.
-5. Test by sending a city in WhatsApp.
 
 ### Estimated Costs:
 - **EKS cluster**: ~$72/month (control plane)

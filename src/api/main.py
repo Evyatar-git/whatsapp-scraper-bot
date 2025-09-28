@@ -1,13 +1,9 @@
 from fastapi import FastAPI, Form, Response, Depends, HTTPException, Request
-import os
-import sys
-from pathlib import Path
-from dotenv import load_dotenv
 from datetime import datetime
 from src.config.logging import setup_logging
 from src.config.settings import settings
-from src.database import get_db, init_database, WeatherData, test_database_connection
-from src.models.schemas import WeatherRequest, WeatherResponse, ErrorResponse
+from src.database import get_db, init_database, test_database_connection
+from src.models.schemas import WeatherRequest, WeatherResponse
 from src.services.weather import WeatherService
 from sqlalchemy.orm import Session
 import logging
@@ -55,9 +51,9 @@ database_operations_duration = Histogram(
     ['operation']
 )
 
-account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-from_number = os.getenv("TWILIO_WHATSAPP_FROM")
+account_sid = settings.twilio_account_sid
+auth_token = settings.twilio_auth_token
+from_number = settings.twilio_whatsapp_from
 
 twilio_client = None
 weather_service = WeatherService()
@@ -98,11 +94,11 @@ def send_message(to_number: str, message: str):
                     error=str(e))
         return None
 
-def handle_message(phone_number: str, message_text: str, db: Session):
-    logger.info("Handling message", 
-               phone_number=phone_number, 
-               message_length=len(message_text))
-    
+def get_message_response(message_text: str, db: Session = None) -> tuple[str, str]:
+    """
+    Process a message and return the response text and message type.
+    Returns: (response_text, message_type)
+    """
     message = message_text.strip().lower()
     
     if message in ["hello", "hi", "start"]:
@@ -114,6 +110,7 @@ Commands:
 - 'ping' to test
 
 Example: London"""
+        message_type = 'greeting'
         
     elif message in ["help", "?"]:
         response = """Available commands:
@@ -122,48 +119,40 @@ Example: London"""
 - 'help' - show commands
 
 Supported: Any city worldwide"""
+        message_type = 'help'
         
     elif message == "ping":
         response = "Weather bot is working!"
+        message_type = 'ping'
         
     else:
         # Treat any other message as a city name
-        logger.info("Weather request", 
-                   phone_number=phone_number, 
-                   city=message_text.strip())
-        
-        send_message(f"whatsapp:{phone_number}", "Fetching weather data... Please wait.")
-        
         try:
             # Validate city name using Pydantic
             weather_request = WeatherRequest(city=message_text.strip())
             
-            result = weather_service.get_current_weather(
-                city=weather_request.city, 
-                db=db
-            )
-            
-            if result["status"] == "success":
-                # Store weather data in database
-                weather_data = WeatherData(
-                    city=result["city"],
-                    temperature=result["temperature"],
-                    description=result["description"],
-                    humidity=result.get("humidity"),
-                    feels_like=result.get("feels_like")
+            if db:
+                result = weather_service.get_current_weather(
+                    city=weather_request.city, 
+                    db=db
                 )
-                db.add(weather_data)
-                db.commit()
                 
-                response = weather_service.format_weather_message(result)
-                logger.info(f"Weather data stored for {result['city']}")
-            else:
-                response = f"""Weather Error
+                if result["status"] == "success":
+                    response = weather_service.format_weather_message(result)
+                    message_type = 'weather_success'
+                    logger.info(f"Weather data retrieved for {result['data']['city']}")
+                else:
+                    response = f"""Weather Error
 
 Could not fetch weather for: {weather_request.city}
 Error: {result.get('error', 'Unknown error')}
 
 Try a different city name."""
+                    message_type = 'weather_error'
+            else:
+                # No database available, return error
+                response = "Database not available. Please try again later."
+                message_type = 'database_error'
                 
         except ValueError as e:
             response = f"""Invalid Input
@@ -171,10 +160,26 @@ Try a different city name."""
 Error: {str(e)}
 
 Please send a valid city name (letters only)."""
-            logger.warning(f"Invalid city name from {phone_number}: {str(e)}")
+            message_type = 'invalid_input'
+            logger.warning(f"Invalid city name: {str(e)}")
         except Exception as e:
             response = "Sorry, an error occurred. Please try again later."
-            logger.error(f"Weather request error from {phone_number}: {str(e)}")
+            message_type = 'error'
+            logger.error(f"Weather request error: {str(e)}")
+    
+    return response, message_type
+
+def handle_message(phone_number: str, message_text: str, db: Session):
+    """Legacy function for backward compatibility."""
+    logger.info("Handling message", 
+               phone_number=phone_number, 
+               message_length=len(message_text))
+    
+    response, message_type = get_message_response(message_text, db)
+    
+    # Send immediate response for weather requests
+    if message_type in ['weather_success', 'weather_error']:
+        send_message(f"whatsapp:{phone_number}", "Fetching weather data... Please wait.")
     
     logger.info(f"Response prepared for {phone_number}, length: {len(response)}")
     return response
@@ -220,27 +225,17 @@ async def get_weather(request: WeatherRequest, db: Session = Depends(get_db)):
         if result["status"] == "success":
             data = result["data"]
             
-            with database_operations_duration.labels(operation='weather_insert').time():
-                weather_data = WeatherData(
-                    city=data["city"],
-                    temperature=data["temperature"],
-                    description=data["description"],
-                    humidity=data.get("humidity"),
-                    feels_like=data.get("feels_like")
-                )
-                db.add(weather_data)
-                db.commit()
-            
             # Record successful weather request
             weather_requests_total.labels(city=request.city, status='success').inc()
             
+            # Weather data is already stored by weather_service.get_current_weather()
             response = WeatherResponse(
                 city=data["city"],
                 temperature=data["temperature"],
                 description=data["description"],
                 humidity=data.get("humidity"),
                 feels_like=data.get("feels_like"),
-                created_at=weather_data.created_at
+                created_at=datetime.now()  # Use current timestamp since data was just fetched
             )
             
             logger.info(f"Weather API completed successfully for {request.city}")
@@ -279,52 +274,23 @@ async def webhook(request: Request, From: str = Form(...), Body: str = Form(...)
                 return Response(status_code=403, content="Forbidden")
 
         message_text = Body.strip()
-        message_lower = message_text.lower()
-
-        if message_lower == "ping":
-            whatsapp_messages_total.labels(message_type='ping').inc()
-            reply_text = "Weather bot is working!"
-        elif message_lower in ["hello", "hi", "start"]:
-            whatsapp_messages_total.labels(message_type='greeting').inc()
-            reply_text = (
-                "WhatsApp Weather Bot\n\n"
-                "Commands:\n"
-                "- Send city name for weather (e.g., 'London' or 'New York')\n"
-                "- 'help' for commands\n"
-                "- 'ping' to test\n\n"
-                "Example: London"
-            )
-        elif message_lower in ["help", "?"]:
-            whatsapp_messages_total.labels(message_type='help').inc()
-            reply_text = (
-                "Available commands:\n"
-                "- Send city name for weather\n"
-                "- 'ping' - test bot\n"
-                "- 'help' - show commands\n\n"
-                "Supported: Any city worldwide"
-            )
-        else:
-            # Full weather flow: validate input, fetch weather, format message
-            try:
-                whatsapp_messages_total.labels(message_type='weather_request').inc()
-                weather_request = WeatherRequest(city=message_text)
-                result = weather_service.get_current_weather(city=weather_request.city, db=None)
-                if result["status"] == "success":
-                    weather_requests_total.labels(city=weather_request.city, status='success').inc()
-                    reply_text = weather_service.format_weather_message({
-                        "status": "success",
-                        "data": result["data"]
-                    })
-                else:
-                    weather_requests_total.labels(city=weather_request.city, status='error').inc()
-                    reply_text = f"Weather Error: {result.get('error', 'Unknown error')}"
-            except ValueError as ve:
-                whatsapp_messages_total.labels(message_type='invalid_input').inc()
-                reply_text = f"Invalid Input: {str(ve)}"
-            except Exception as e:
-                whatsapp_messages_total.labels(message_type='error').inc()
-                logger.exception(f"Weather fetch error: {str(e)}")
-                reply_text = "Sorry, an error occurred fetching the weather. Please try again."
+        
+        # Use consolidated message handler
+        db = next(get_db())
+        try:
+            reply_text, message_type = get_message_response(message_text, db)
+            
+            # Update metrics based on message type
+            whatsapp_messages_total.labels(message_type=message_type).inc()
+            
+            # Update weather-specific metrics
+            if message_type == 'weather_success':
+                weather_requests_total.labels(city=message_text.strip(), status='success').inc()
+            elif message_type == 'weather_error':
+                weather_requests_total.labels(city=message_text.strip(), status='error').inc()
+                
+        finally:
+            db.close()
 
         # Build TwiML safely via Twilio helper to avoid XML issues
         safe_text = html.escape(reply_text)

@@ -5,6 +5,14 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -63,6 +71,8 @@ module "alb_eks" {
   subnet_ids                = module.vpc.public_subnet_ids
   cluster_name              = module.eks.cluster_id
   cluster_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
+  cluster_endpoint          = module.eks.cluster_endpoint
+  cluster_certificate_authority_data = module.eks.cluster_certificate_authority_data
   node_security_group_id    = module.eks.node_group_security_group_id
   enable_aws_load_balancer_controller = true
 

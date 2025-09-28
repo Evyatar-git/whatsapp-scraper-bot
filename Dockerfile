@@ -27,8 +27,10 @@ COPY --from=builder /root/.local /home/appuser/.local
 COPY src/ ./src/
 COPY run.py .
 
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
+# Create database directory and ensure proper permissions
+RUN mkdir -p /app/data && \
+    chown -R appuser:appuser /app && \
+    chmod 755 /app/data
 
 # Switch to non-root user
 USER appuser

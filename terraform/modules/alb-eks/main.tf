@@ -276,3 +276,52 @@ resource "aws_security_group_rule" "alb_to_nodes" {
   security_group_id        = var.node_security_group_id
   description              = "Allow ALB to communicate with Kubernetes nodes"
 }
+
+# Kubernetes ServiceAccount for AWS Load Balancer Controller
+resource "kubernetes_service_account" "aws_load_balancer_controller" {
+  count = var.enable_aws_load_balancer_controller ? 1 : 0
+
+  metadata {
+    name      = "aws-load-balancer-controller"
+    namespace = "kube-system"
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.aws_load_balancer_controller[0].arn
+    }
+  }
+}
+
+# Helm chart for AWS Load Balancer Controller
+resource "helm_release" "aws_load_balancer_controller" {
+  count = var.enable_aws_load_balancer_controller ? 1 : 0
+
+  name       = "aws-load-balancer-controller"
+  repository = "https://aws.github.io/eks-charts"
+  chart      = "aws-load-balancer-controller"
+  namespace  = "kube-system"
+  version    = "1.8.1"
+
+  set {
+    name  = "clusterName"
+    value = var.cluster_name
+  }
+
+  set {
+    name  = "serviceAccount.create"
+    value = "false"
+  }
+
+  set {
+    name  = "serviceAccount.name"
+    value = "aws-load-balancer-controller"
+  }
+
+  set {
+    name  = "region"
+    value = data.aws_region.current.name
+  }
+
+  depends_on = [
+    kubernetes_service_account.aws_load_balancer_controller,
+    aws_iam_role_policy_attachment.aws_load_balancer_controller
+  ]
+}

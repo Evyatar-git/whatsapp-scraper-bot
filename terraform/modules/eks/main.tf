@@ -4,10 +4,24 @@ data "aws_region" "current" {}
 # Data source to get current AWS caller identity
 data "aws_caller_identity" "current" {}
 
-# ECR Repository for container images
+# ECR Repository for main application container images
 resource "aws_ecr_repository" "app" {
   name                 = var.name
   image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = var.tags
+}
+
+# ECR Repository for init container images
+resource "aws_ecr_repository" "init" {
+  name                 = "${var.name}-init"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
 
   image_scanning_configuration {
     scan_on_push = true
@@ -151,7 +165,7 @@ resource "aws_eks_cluster" "cluster" {
     subnet_ids              = var.subnet_ids
     endpoint_private_access = true
     endpoint_public_access  = true
-    public_access_cidrs     = ["0.0.0.0/0"]
+    public_access_cidrs     = ["0.0.0.0/0"] 
     security_group_ids      = [aws_security_group.cluster_sg.id]
   }
 
@@ -226,4 +240,63 @@ resource "aws_iam_openid_connect_provider" "cluster_oidc" {
   thumbprint_list = [data.tls_certificate.cluster_cert[0].certificates[0].sha1_fingerprint]
 
   tags = var.tags
+}
+
+# IAM Role for Service Account to access Parameter Store
+resource "aws_iam_role" "parameter_store_role" {
+  count = var.enable_irsa ? 1 : 0
+  name  = "${var.name}-parameter-store-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.cluster_oidc[0].arn
+        }
+        Condition = {
+          StringEquals = {
+            "${replace(aws_iam_openid_connect_provider.cluster_oidc[0].url, "https://", "")}:sub": "system:serviceaccount:${var.name}:${var.name}-sa"
+            "${replace(aws_iam_openid_connect_provider.cluster_oidc[0].url, "https://", "")}:aud": "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# Policy to access Parameter Store
+resource "aws_iam_policy" "parameter_store_policy" {
+  count = var.enable_irsa ? 1 : 0
+  name  = "${var.name}-parameter-store-policy"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = [
+          "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/weather-bot-*"
+        ]
+      }
+    ]
+  })
+
+  tags = var.tags
+}
+
+# Attach policy to role
+resource "aws_iam_role_policy_attachment" "parameter_store_policy_attachment" {
+  count      = var.enable_irsa ? 1 : 0
+  policy_arn = aws_iam_policy.parameter_store_policy[0].arn
+  role       = aws_iam_role.parameter_store_role[0].name
 }

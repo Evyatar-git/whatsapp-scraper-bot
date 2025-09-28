@@ -141,7 +141,8 @@ deploy_to_eks() {
     
     # Configure kubectl to use EKS cluster
     echo -e "${YELLOW}Configuring kubectl for EKS...${NC}"
-    aws eks update-kubeconfig --region us-east-1 --name weather-bot
+    AWS_REGION=$(aws configure get region)
+    aws eks update-kubeconfig --region $AWS_REGION --name weather-bot
     
     # Verify cluster connection
     echo -e "${YELLOW}Verifying cluster connection...${NC}"
@@ -155,12 +156,19 @@ deploy_to_eks() {
     # Create namespace if it doesn't exist
     kubectl create namespace weather-bot --dry-run=client -o yaml | kubectl apply -f -
     
+    # Get AWS account ID and region for IAM role
+    AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+    AWS_REGION=$(aws configure get region)
+    IAM_ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/weather-bot-parameter-store-role"
+    
     # Deploy the application using Helm
     echo -e "${YELLOW}Deploying Weather Bot with Helm...${NC}"
     helm upgrade --install weather-bot ./whatsapp-weather-bot-chart \
         --namespace weather-bot \
         --set image.repository=$ECR_REPOSITORY_URL \
         --set image.tag=latest \
+        --set iam.roleArn=$IAM_ROLE_ARN \
+        --set aws.region=$AWS_REGION \
         --wait --timeout=300s
     
     echo -e "${GREEN}EKS deployment completed successfully!${NC}"
@@ -207,7 +215,7 @@ configure_webhook() {
 main() {
     check_prerequisites
     
-    echo -e "${YELLOW}📋 Deployment Steps:${NC}"
+    echo -e "${YELLOW}Deployment Steps:${NC}"
     echo "1. Deploy AWS infrastructure (VPC, EKS, ALB, ECR)"
     echo "2. Build and push Docker image to ECR"  
     echo "3. Deploy to EKS using Helm"

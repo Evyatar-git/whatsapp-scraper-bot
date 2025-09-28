@@ -94,7 +94,8 @@ aws-destroy:
 # EKS specific commands
 eks-connect:
 	@echo "Configuring kubectl for EKS cluster..."
-	aws eks update-kubeconfig --region us-east-1 --name weather-bot
+	AWS_REGION=$$(aws configure get region); \
+	aws eks update-kubeconfig --region $$AWS_REGION --name weather-bot
 
 eks-status:
 	@echo "Checking EKS cluster status..."
@@ -109,3 +110,17 @@ eks-logs:
 aws-status:
 	@echo "Checking AWS deployment status..."
 	cd terraform/environments/dev && terraform output
+
+# Database commands
+db-init:
+	@echo "Initializing database..."
+	python scripts/init-database.py
+
+db-test:
+	@echo "Testing database connection..."
+	python -c "from src.database import test_database_connection; print('Database connection:', test_database_connection())"
+
+db-reset:
+	@echo "Resetting database (removing existing data)..."
+	rm -f weather_bot.db
+	python scripts/init-database.py

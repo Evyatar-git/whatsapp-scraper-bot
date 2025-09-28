@@ -154,3 +154,13 @@ terraform-state-*/
 # Local testing and port forwarding
 *.pid
 .port-forward
+
+# Database initialization scripts output
+scripts/init-database.py.log
+
+# Docker build context
+.dockerignore.local
+
+# Local deployment outputs
+deployment.log
+kubectl-output.log

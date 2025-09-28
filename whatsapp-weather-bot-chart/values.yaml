@@ -7,10 +7,12 @@ app:
 
 # Container image configuration
 image:
-  # ECR repository URL will be set during deployment
-  repository: ""  # Will be populated with ECR URL
+  # ECR repository URL - will be set during deployment via --set flag
+  repository: ""  # e.g., "123456789012.dkr.ecr.region.amazonaws.com/weather-bot"
   tag: "latest"
-  pullPolicy: Always  # Changed from Never for production
+  pullPolicy: Always
+
+# Init container removed - using IRSA for Parameter Store access directly
 
 # Kubernetes service configuration
 service:
@@ -37,15 +39,9 @@ config:
   API_PORT: "8000"
   LOG_LEVEL: "INFO"
   ENABLE_METRICS: "true"
+  DATABASE_URL: "sqlite:///./data/weather_bot.db"
 
-# Secrets configuration (will use AWS Parameter Store in production)
-secrets:
-  # These will be populated from AWS Parameter Store
-  # Format: /weather-bot/PARAMETER_NAME
-  TWILIO_ACCOUNT_SID: ""
-  TWILIO_AUTH_TOKEN: ""
-  TWILIO_WHATSAPP_FROM: ""
-  WEATHER_API_KEY: ""
+# Secrets are now loaded directly from AWS Parameter Store via IRSA
 
 # Ingress configuration for ALB
 ingress:
@@ -64,16 +60,23 @@ ingress:
 
 # Health checks
 healthcheck:
+  path: /health
   liveness:
     enabled: true
-    path: /health
     initialDelaySeconds: 30
     periodSeconds: 10
   readiness:
     enabled: true
-    path: /health
     initialDelaySeconds: 5
     periodSeconds: 5
+
+# IAM configuration for IRSA
+iam:
+  roleArn: ""  # Will be set during deployment, e.g., "arn:aws:iam::123456789012:role/weather-bot-parameter-store-role"
+
+# AWS configuration
+aws:
+  region: ""  # Will be set during deployment, e.g., "us-east-1"
 
 # Labels applied to all resources
 labels:

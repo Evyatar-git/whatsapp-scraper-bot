@@ -37,7 +37,7 @@ variable "private_subnet_count" {
 variable "enable_nat_gateway" {
   description = "Enable NAT gateway for private subnets"
   type        = bool
-  default     = false  # Disabled for cost savings
+  default     = false
 }
 
 # Cost optimization variables
@@ -71,8 +71,5 @@ variable "log_retention_days" {
   default     = 7      # Reduced for cost savings
 }
 
-variable "enable_monitoring" {
-  description = "Enable monitoring stack (Prometheus + Grafana)"
-  type        = bool
-  default     = false  # Set to true to enable monitoring
-}
+# Monitoring is handled via Helm charts in EKS, not Terraform modules
+# To deploy monitoring: helm install prometheus prometheus-community/kube-prometheus-stack

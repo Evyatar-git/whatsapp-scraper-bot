@@ -34,6 +34,16 @@ variable "node_security_group_id" {
   type        = string
 }
 
+variable "cluster_endpoint" {
+  description = "Endpoint URL of the EKS cluster"
+  type        = string
+}
+
+variable "cluster_certificate_authority_data" {
+  description = "Base64 encoded certificate authority data of the EKS cluster"
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

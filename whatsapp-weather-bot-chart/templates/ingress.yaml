@@ -1,33 +1,32 @@
-{{- if .Values.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Values.app.name }}-ingress
   namespace: {{ .Values.app.namespace }}
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: {{ .Values.healthcheck.path }}
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/load-balancer-name: {{ .Values.app.name }}-alb
   labels:
     app: {{ .Values.app.name }}
     {{- range $key, $value := .Values.labels }}
     {{ $key }}: {{ $value | quote }}
     {{- end }}
-  annotations:
-    {{- range $key, $value := .Values.ingress.annotations }}
-    {{ $key }}: {{ $value | quote }}
-    {{- end }}
 spec:
-  ingressClassName: {{ .Values.ingress.className }}
   rules:
-  {{- range .Values.ingress.hosts }}
-  - host: {{ .host | quote }}
-    http:
+  - http:
       paths:
-      {{- range .paths }}
-      - path: {{ .path }}
-        pathType: {{ .pathType }}
+      - path: /
+        pathType: Prefix
         backend:
           service:
-            name: {{ $.Values.app.name }}-service
+            name: {{ .Values.app.name }}-service
             port:
-              number: {{ $.Values.service.port }}
-      {{- end }}
-  {{- end }}
-{{- end }}
+              number: {{ .Values.service.port }}
